@@ -20,6 +20,13 @@
     canvas {
       max-width: 100%;
     }
+    .insulin-result {
+      background: #e9f7ef;
+      border: 1px solid #2ecc71;
+      padding: 1rem;
+      border-radius: 0.75rem;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -64,6 +71,7 @@
       </div>
       <button class="btn btn-primary mt-3" type="submit">ذخیره اطلاعات</button>
     </form>
+    <div id="insulinSuggestion" class="insulin-result d-none"></div>
   </div>
 
   <div class="card p-4 mb-4">
@@ -76,20 +84,47 @@
 <script>
   const dataStore = JSON.parse(localStorage.getItem("records") || "[]");
   const form = document.getElementById("insulin-form");
+  const suggestionDiv = document.getElementById("insulinSuggestion");
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
+    const now = new Date();
     const formData = Object.fromEntries(new FormData(form).entries());
-    formData.date = new Date().toLocaleDateString("fa-IR");
+    formData.date = now.toLocaleDateString("fa-IR");
+    formData.time = now.toLocaleTimeString("fa-IR", { hour: '2-digit', minute: '2-digit' });
     dataStore.push(formData);
     localStorage.setItem("records", JSON.stringify(dataStore));
-    alert("اطلاعات ذخیره شد ✅");
     form.reset();
     drawChart();
+    showSuggestion(formData);
   });
 
+  function adjustInsulin(insulin, glucose) {
+    insulin = parseInt(insulin);
+    glucose = parseInt(glucose);
+    if (glucose > 120) return insulin + 2;
+    if (glucose < 80) return Math.max(insulin - 4, 0);
+    return insulin;
+  }
+
+  function showSuggestion(entry) {
+    const s = adjustInsulin(entry.insulin_22, entry.fbs);
+    const b = adjustInsulin(entry.insulin_breakfast, entry.glucose_after_breakfast);
+    const l = adjustInsulin(entry.insulin_lunch, entry.glucose_after_lunch);
+    const d = adjustInsulin(entry.insulin_dinner, entry.glucose_after_dinner);
+
+    suggestionDiv.classList.remove("d-none");
+    suggestionDiv.innerHTML = `
+      <strong>دوز پیشنهادی برای فردا:</strong><br>
+      انسولین ساعت ۲۲: ${s} واحد<br>
+      صبحانه: ${b} واحد<br>
+      ناهار: ${l} واحد<br>
+      شام: ${d} واحد
+    `;
+  }
+
   function drawChart() {
-    const labels = dataStore.map(r => r.date);
+    const labels = dataStore.map(r => r.date + "\n" + (r.time || ""));
     const fbs = dataStore.map(r => Number(r.fbs));
     const afterBreakfast = dataStore.map(r => Number(r.glucose_after_breakfast));
     const afterLunch = dataStore.map(r => Number(r.glucose_after_lunch));
@@ -127,4 +162,3 @@
 </script>
 </body>
 </html>
-
